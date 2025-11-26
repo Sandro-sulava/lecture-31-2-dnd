@@ -1,15 +1,36 @@
 import { useDroppable } from "@dnd-kit/core";
 import { ColumnProps } from "../types";
 import TaskCard from "./TaskCard";
+import { useForm } from "react-hook-form";
+import { TaskForm, taskSchema } from "../schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 
-const Column = ({ column, tasks }: ColumnProps) => {
+const Column = ({ column, tasks, onCreateTask }: ColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
 
+  const [showForm, setShowForm] = useState(false);
+
   const style = {
     opacity: isOver ? 1 : 0.5,
     backgroundColor: isOver ? "#FF0000" : "",
+  };
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<TaskForm>({
+    resolver: zodResolver(taskSchema),
+  });
+
+  const onSubmit = (data: TaskForm) => {
+    onCreateTask({ ...data, status: column.id });
+    reset();
+    setShowForm(false);
   };
 
   return (

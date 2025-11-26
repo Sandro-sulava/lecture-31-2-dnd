@@ -1,34 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import { COLUMNS, INITIAL_TASKS } from "../data/data";
+import { createtask, fetchTasks, updateTask } from "../api/api";
+import { COLUMNS } from "../data/data";
 import { Task } from "../types";
 import Column from "./Column";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const DndPage = () => {
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const queryClient = useQueryClient();
+
+  const {
+    data: tasks = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: fetchTasks,
+  });
+
+  const mutation = useMutation({
+    mutationFn: (updatedTask: Task) => updateTask(updatedTask.id, updatedTask),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over) return;
-    //      4
+
     const taskId = active.id as string;
-    //     "TODO",
-    //     "IN_PROGRESS"
-    //     "DONE"
+
     const newStatus = over.id as Task["status"];
 
-    setTasks(() =>
-      tasks.map((eachElement) =>
-        eachElement.id === taskId
-          ? {
-              ...eachElement,
-              status: newStatus,
-            }
-          : eachElement
-      )
-    );
+    const task = tasks.find((eachElement) => eachElement.id === taskId);
+
+    if (!task || task.status === newStatus) return;
+
+    const updatedTask = { ...task, status: newStatus };
+
+    mutation.mutate(updatedTask);
+
+    if (isLoading) return <p>Loading ...</p>;
+  }
+
+  const createTaskMutation = useMutation({
+    mutationFn: createtask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  function handleCreateTask(newTask: Omit<Task, "id">) {
+    createTaskMutation.mutate(newTask);
   }
 
   return (
@@ -40,6 +65,7 @@ const DndPage = () => {
               key={column.id}
               column={column}
               tasks={tasks.filter((task) => task.status === column.id)}
+              onCreateTask={handleCreateTask}
             />
           ))}
         </DndContext>
